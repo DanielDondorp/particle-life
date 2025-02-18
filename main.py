@@ -187,12 +187,19 @@ class NBodyGravityWindow(arcade.Window):
 
     def generate_video_filename(self) -> str:
         """Generate a unique video filename based on current time and simulation parameters."""
+        # Create videos directory if it doesn't exist
+        videos_dir = Path("videos")
+        videos_dir.mkdir(exist_ok=True)
+        
         # Format: particle_life_YYYYMMDD_HHMMSS_30kp_5t.mp4
         # Where 30kp means 30,000 particles, 5t means 5 particle types
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         particles_str = f"{NUM_PARTICLES//1000}kp" if NUM_PARTICLES >= 1000 else f"{NUM_PARTICLES}p"
         types_str = f"{N_PARTICLE_TYPES}t"
-        return f"particle_life_{timestamp}_{particles_str}_{types_str}.mp4"
+        filename = f"particle_life_{timestamp}_{particles_str}_{types_str}.mp4"
+        
+        # Return full path in videos directory
+        return str(videos_dir / filename)
 
     def start_recording(self, output_path: Optional[str] = None):
         """Start recording the simulation to video."""

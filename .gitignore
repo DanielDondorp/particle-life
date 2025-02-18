@@ -44,6 +44,9 @@ Thumbs.db
 *.flv
 *.mkv 
 
+# Project specific
+videos/
+
 # Archives
 *.zip
 *.rar
