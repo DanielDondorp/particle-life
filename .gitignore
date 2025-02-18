@@ -43,3 +43,14 @@ Thumbs.db
 *.wmv
 *.flv
 *.mkv 
+
+# Archives
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# OS
+.DS_Store
+Thumbs.db 
