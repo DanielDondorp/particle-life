@@ -220,7 +220,9 @@ class NBodyGravityWindow(arcade.Window):
             self.recording = True
             self.frame_count = 0
             self.start_time = time.time()
-            print(f"\nStarted recording to {output_path}")
+            print(f"Started recording to {output_path}")
+            # Print an empty line for progress updates
+            print("")
 
     def stop_recording(self):
         """Stop recording and save the video."""
@@ -230,8 +232,8 @@ class NBodyGravityWindow(arcade.Window):
                 self.video_writer.release()
                 self.video_writer = None
             duration = time.time() - self.start_time
-            # Clear the current line and print the stop message
-            print(f"\033[K\rRecording stopped. Saved {self.frame_count} frames ({duration:.1f} seconds)", flush=True)
+            # Move up one line and clear it
+            print(f"\033[A\033[KRecording stopped. Saved {self.frame_count} frames ({duration:.1f} seconds)")
 
     def on_key_press(self, key: int, modifiers: int):
         """Handle key press events for video recording control."""
@@ -278,9 +280,11 @@ class NBodyGravityWindow(arcade.Window):
             self.video_writer.write(frame)
             self.frame_count += 1
             
-            # Update progress (clear the line first)
+            # Update progress by moving up one line first
             duration = time.time() - self.start_time
-            print(f"\033[K\rRecording: {self.frame_count} frames ({duration:.1f} seconds) - Press Ctrl+R to stop", end="", flush=True)
+            print(f"\033[A\033[KRecording: {self.frame_count} frames ({duration:.1f} seconds) - Press Ctrl+R to stop", end="", flush=True)
+            # Print a newline to maintain the empty line below
+            print("")
 
         # Swap the buffer pairs.
         self.ssbo_previous, self.ssbo_current = self.ssbo_current, self.ssbo_previous
