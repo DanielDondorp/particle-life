@@ -54,7 +54,7 @@ opencv-python>=4.8.0
 
 1. Clone the repository:
 ```bash
-git clone [repository-url]
+git clone https://github.com/DanielDondorp/particle-life.git
 ```
 
 2. Create and activate a virtual environment (optional but recommended):
@@ -94,27 +94,6 @@ python run_simulation.py
 - Increase max speed and reduce friction for more chaotic movement
 - Use large interaction radius with low forces for subtle, long-range effects
 - Experiment with different combinations to discover unique patterns
-
-## Technical Details
-
-### Particle Properties
-- Position (2D)
-- Velocity (2D)
-- Color (determines particle type)
-- Radius
-
-### Performance
-- Processes particles in batches of 256 (compute shader work group size)
-- Efficient parallel computation of particle interactions
-- Optimized for real-time interaction with large particle counts (30,000+ particles)
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit pull requests or open issues for:
-- New features or improvements
-- Bug fixes
-- Documentation updates
-- Performance optimizations
 
 ## License
 
