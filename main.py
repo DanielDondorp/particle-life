@@ -197,7 +197,8 @@ class NBodyGravityWindow(arcade.Window):
             )
             self.recording = True
             self.frame_count = 0
-            print(f"Started recording to {output_path}")
+            self.start_time = arcade.get_time()
+            print(f"\nStarted recording to {output_path}")
 
     def stop_recording(self):
         """Stop recording and save the video."""
@@ -206,7 +207,8 @@ class NBodyGravityWindow(arcade.Window):
             if self.video_writer:
                 self.video_writer.release()
                 self.video_writer = None
-            print(f"Recording stopped. Saved {self.frame_count} frames.")
+            duration = arcade.get_time() - self.start_time
+            print(f"\nRecording stopped. Saved {self.frame_count} frames ({duration:.1f} seconds)")
 
     def on_key_press(self, key: int, modifiers: int):
         """Handle key press events for video recording control."""
@@ -242,14 +244,6 @@ class NBodyGravityWindow(arcade.Window):
             image_buffer = self.ctx.screen.read(components=4)
             # Convert to numpy array and reshape
             frame = np.frombuffer(image_buffer, dtype=np.uint8)
-            
-            # Debug information
-            expected_size = fb_width * fb_height * 4
-            actual_size = len(frame)
-            print(f"Expected buffer size: {expected_size} (width={fb_width}, height={fb_height}, components=4)")
-            print(f"Actual buffer size: {actual_size}")
-            
-            # Reshape considering all 4 components (RGBA)
             frame = frame.reshape((fb_height, fb_width, 4))
             # Extract only RGB components
             frame = frame[:, :, :3]
@@ -260,6 +254,10 @@ class NBodyGravityWindow(arcade.Window):
             # Write the frame
             self.video_writer.write(frame)
             self.frame_count += 1
+            
+            # Update progress (use \r to stay on same line)
+            duration = arcade.get_time() - self.start_time
+            print(f"\rRecording: {self.frame_count} frames ({duration:.1f} seconds) - Press Ctrl+R to stop", end="", flush=True)
 
         # Swap the buffer pairs.
         self.ssbo_previous, self.ssbo_current = self.ssbo_current, self.ssbo_previous
