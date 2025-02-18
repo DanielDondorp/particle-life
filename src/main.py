@@ -47,7 +47,7 @@ GRAPH_HEIGHT = 120
 GRAPH_MARGIN = 5
 
 # Simulation parameters
-NUM_PARTICLES: int = 40000
+NUM_PARTICLES: int = 35000
 N_PARTICLE_TYPES: int = 5
 
 # Add simulation parameters that will be controllable
@@ -108,14 +108,8 @@ def gen_initial_data(
     """
     width, height = screen_size
     
-    # Fixed colors matching the shader
-    colors = [
-        (0.9, 0.2, 0.2),  # Type 0 - Red
-        (0.2, 0.9, 0.2),  # Type 1 - Green
-        (0.2, 0.2, 0.9),  # Type 2 - Blue
-        (0.9, 0.9, 0.2),  # Type 3 - Yellow
-        (0.9, 0.2, 0.9),  # Type 4 - Purple
-    ]
+    # Use a colormap to generate colors for each particle type
+    cmap = sns.color_palette(palette, num_particle_types)
     
     def _data_generator() -> Generator[float, None, None]:
         particles_per_type = num_particles // num_particle_types
@@ -139,7 +133,7 @@ def gen_initial_data(
                 yield 0.0
 
                 # Color (represents particle type)
-                r, g, b = colors[type_id]
+                r, g, b = cmap[type_id]
                 yield r
                 yield g
                 yield b
