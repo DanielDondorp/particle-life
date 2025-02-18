@@ -8,6 +8,8 @@ from typing import Generator, Tuple
 import seaborn as sns
 import arcade
 from arcade.gl import BufferDescription
+from pathlib import Path
+
 
 # Window dimensions
 WINDOW_WIDTH = 1000
