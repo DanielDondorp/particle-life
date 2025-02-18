@@ -4,11 +4,12 @@ Particle Life
 import random
 import numpy as np
 from array import array
-from typing import Generator, Tuple
+from typing import Generator, Tuple, Optional
 import seaborn as sns
 import arcade
 from arcade.gl import BufferDescription
 from pathlib import Path
+import cv2
 
 
 # Window dimensions
@@ -71,6 +72,11 @@ class NBodyGravityWindow(arcade.Window):
             resizable=True,
             update_rate=1/30,
         )
+        # Video recording properties
+        self.video_writer: Optional[cv2.VideoWriter] = None
+        self.recording = False
+        self.frame_count = 0
+        
         # Attempt to put the window in the center of the screen.
         self.center_window()
 
@@ -177,6 +183,38 @@ class NBodyGravityWindow(arcade.Window):
         # self.perf_graph_list.append(graph)
 
 
+    def start_recording(self, output_path: str = "particle_life.mp4"):
+        """Start recording the simulation to video."""
+        if not self.recording:
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            self.video_writer = cv2.VideoWriter(
+                output_path, 
+                fourcc, 
+                30.0,  # FPS
+                (self.width, self.height)
+            )
+            self.recording = True
+            self.frame_count = 0
+            print(f"Started recording to {output_path}")
+
+    def stop_recording(self):
+        """Stop recording and save the video."""
+        if self.recording:
+            self.recording = False
+            if self.video_writer:
+                self.video_writer.release()
+                self.video_writer = None
+            print(f"Recording stopped. Saved {self.frame_count} frames.")
+
+    def on_key_press(self, key: int, modifiers: int):
+        """Handle key press events for video recording control."""
+        if key == arcade.key.R and modifiers & arcade.key.MOD_CTRL:
+            # Ctrl+R to toggle recording
+            if not self.recording:
+                self.start_recording()
+            else:
+                self.stop_recording()
+
     def on_draw(self):
         # Clear the screen
         self.clear()
@@ -187,21 +225,28 @@ class NBodyGravityWindow(arcade.Window):
         self.ssbo_previous.bind_to_storage_buffer(binding=0)
         self.ssbo_current.bind_to_storage_buffer(binding=1)
 
-        # If you wanted, you could set input variables for compute shader
-        # as in the lines commented out below. You would have to add or
-        # uncomment corresponding lines in compute_shader.glsl
-        # self.compute_shader["screen_size"] = self.get_size()
-        # self.compute_shader["frame_time"] = self.frame_time
-
         # Run compute shader to calculate new positions for this frame
         self.compute_shader.run(group_x=self.group_x, group_y=self.group_y)
 
         # Draw the current star positions
         self.vao_current.render(self.program)
 
+        # Record frame if we're recording
+        if self.recording and self.video_writer:
+            # Read the frame buffer
+            image_buffer = self.ctx.screen.read(components=3)
+            # Convert to numpy array and reshape
+            frame = np.frombuffer(image_buffer, dtype=np.uint8)
+            frame = frame.reshape((self.height, self.width, 3))
+            # OpenCV uses BGR format, so convert from RGB
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            # Flip the image vertically (OpenGL coordinate system is different)
+            frame = cv2.flip(frame, 0)
+            # Write the frame
+            self.video_writer.write(frame)
+            self.frame_count += 1
+
         # Swap the buffer pairs.
-        # The buffers for the current state become the initial state,
-        # and the data of this frame's initial state will be overwritten.
         self.ssbo_previous, self.ssbo_current = self.ssbo_current, self.ssbo_previous
         self.vao_previous, self.vao_current = self.vao_current, self.vao_previous
 
