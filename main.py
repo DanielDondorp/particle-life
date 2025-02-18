@@ -233,11 +233,14 @@ class NBodyGravityWindow(arcade.Window):
 
         # Record frame if we're recording
         if self.recording and self.video_writer:
-            # Read the frame buffer
-            image_buffer = self.ctx.screen.read(components=3)
+            # Read the frame buffer (4 components: RGBA)
+            image_buffer = self.ctx.screen.read(components=4)
             # Convert to numpy array and reshape
             frame = np.frombuffer(image_buffer, dtype=np.uint8)
-            frame = frame.reshape((self.height, self.width, 3))
+            # Reshape considering all 4 components (RGBA)
+            frame = frame.reshape((self.height, self.width, 4))
+            # Extract only RGB components
+            frame = frame[:, :, :3]
             # OpenCV uses BGR format, so convert from RGB
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             # Flip the image vertically (OpenGL coordinate system is different)
