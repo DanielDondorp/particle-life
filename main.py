@@ -10,6 +10,7 @@ import arcade
 from arcade.gl import BufferDescription
 from pathlib import Path
 import cv2
+import time
 
 
 # Window dimensions
@@ -197,7 +198,7 @@ class NBodyGravityWindow(arcade.Window):
             )
             self.recording = True
             self.frame_count = 0
-            self.start_time = arcade.get_time()
+            self.start_time = time.time()
             print(f"\nStarted recording to {output_path}")
 
     def stop_recording(self):
@@ -207,7 +208,7 @@ class NBodyGravityWindow(arcade.Window):
             if self.video_writer:
                 self.video_writer.release()
                 self.video_writer = None
-            duration = arcade.get_time() - self.start_time
+            duration = time.time() - self.start_time
             print(f"\nRecording stopped. Saved {self.frame_count} frames ({duration:.1f} seconds)")
 
     def on_key_press(self, key: int, modifiers: int):
@@ -256,7 +257,7 @@ class NBodyGravityWindow(arcade.Window):
             self.frame_count += 1
             
             # Update progress (use \r to stay on same line)
-            duration = arcade.get_time() - self.start_time
+            duration = time.time() - self.start_time
             print(f"\rRecording: {self.frame_count} frames ({duration:.1f} seconds) - Press Ctrl+R to stop", end="", flush=True)
 
         # Swap the buffer pairs.
