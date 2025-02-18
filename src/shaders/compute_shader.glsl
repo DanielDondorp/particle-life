@@ -8,15 +8,14 @@ uniform int NUM_PARTICLES;
 uniform int N_PARTICLE_TYPES;
 uniform float interaction_matrix[64];  // Changed to 1D array for easier passing
 
-// Simulation parameters
-const float INTERACTION_RADIUS = 200.0;    // Maximum radius for interaction
-const float REPULSION_RADIUS = 50;      // Distance where repulsion starts
-const float REPULSION_STRENGTH = 4.0;     // Base strength of repulsion force
-const float ATTRACTION_STRENGTH = 1.0;    // Base strength of attraction force
-const float MAX_FORCE = 0.7;             // Maximum force magnitude
-const float MAX_SPEED = 10.0;             // Maximum velocity magnitude
-const float FRICTION = 0.9;             // Velocity dampening
-
+// Simulation parameters (now as uniforms)
+uniform float interaction_radius;    // Maximum radius for interaction
+uniform float repulsion_radius;      // Distance where repulsion starts
+uniform float repulsion_strength;    // Base strength of repulsion force
+uniform float attraction_strength;   // Base strength of attraction force
+uniform float max_force;            // Maximum force magnitude
+uniform float max_speed;            // Maximum velocity magnitude
+uniform float friction;             // Velocity dampening
 
 // Structure of the particle data
 struct Particle {
@@ -76,20 +75,20 @@ void main() {
 
         if(dist > 0.0) {  // Avoid division by zero
             // Universal repulsion (inverse proportional to distance)
-            if(dist < REPULSION_RADIUS) {
-                float repulsion = REPULSION_STRENGTH * (1.0 - dist/REPULSION_RADIUS);
+            if(dist < repulsion_radius) {
+                float repulsion = repulsion_strength * (1.0 - dist/repulsion_radius);
                 force_sum -= direction * repulsion;
             }
             
             // Attraction/repulsion based on particle types
-            if(dist < INTERACTION_RADIUS && dist > REPULSION_RADIUS) {
+            if(dist < interaction_radius && dist > repulsion_radius) {
                 // Convert 2D index to 1D for matrix lookup
                 int matrix_index = type1 * N_PARTICLE_TYPES + type2;
                 float interaction = interaction_matrix[matrix_index];
                 
                 // Smooth transition between repulsion and interaction radius
-                float factor = ATTRACTION_STRENGTH * interaction * 
-                             (1.0 - (dist - REPULSION_RADIUS)/(INTERACTION_RADIUS - REPULSION_RADIUS));
+                float factor = attraction_strength * interaction * 
+                             (1.0 - (dist - repulsion_radius)/(interaction_radius - repulsion_radius));
                              
                 force_sum += direction * factor;
             }
@@ -98,17 +97,17 @@ void main() {
 
     // Apply maximum force limit
     float force_mag = length(force_sum);
-    if(force_mag > MAX_FORCE) {
-        force_sum = normalize(force_sum) * MAX_FORCE;
+    if(force_mag > max_force) {
+        force_sum = normalize(force_sum) * max_force;
     }
 
     // Update velocity with friction
-    vel = vel * FRICTION + force_sum;
+    vel = vel * friction + force_sum;
     
     // Apply speed limit
     float speed = length(vel);
-    if(speed > MAX_SPEED) {
-        vel = normalize(vel) * MAX_SPEED;
+    if(speed > max_speed) {
+        vel = normalize(vel) * max_speed;
     }
 
     // Update position with wraparound

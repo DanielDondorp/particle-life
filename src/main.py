@@ -1,5 +1,22 @@
 """
-Particle Life
+Particle Life Simulation
+
+A GPU-accelerated particle simulation that demonstrates emergent behavior through
+particle interactions. The simulation uses compute shaders for efficient parallel
+processing and provides real-time control over simulation parameters through an
+interactive UI.
+
+The simulation features multiple particle types that interact based on a randomly
+generated interaction matrix, creating complex and interesting patterns. Particles
+move in a toroidal space (wrapping around screen edges) and respond to various
+forces including attraction, repulsion, and friction.
+
+Key Features:
+- GPU-accelerated particle simulation using OpenGL compute shaders
+- Multiple particle types with distinct behaviors
+- Real-time parameter adjustment through UI controls
+- Video recording capabilities
+- Toroidal world space
 """
 import random
 import numpy as np
@@ -35,6 +52,22 @@ N_PARTICLE_TYPES: int = 5
 
 # Add simulation parameters that will be controllable
 class SimulationParams:
+    """
+    Encapsulates all adjustable parameters for the particle simulation.
+    
+    This class serves as a central configuration point for the simulation,
+    storing parameters that control particle behavior, interactions, and
+    movement characteristics.
+    
+    Attributes:
+        interaction_radius (float): Maximum distance for particle interactions (50-400)
+        repulsion_radius (float): Distance where repulsion begins (10-100)
+        repulsion_strength (float): Intensity of repulsion force (0-10)
+        attraction_strength (float): Intensity of attraction force (0-5)
+        max_force (float): Maximum force magnitude allowed (0.1-2.0)
+        max_speed (float): Maximum velocity magnitude allowed (1-20)
+        friction (float): Velocity dampening factor (0.5-0.99)
+    """
     def __init__(self):
         # Interaction parameters
         self.interaction_radius: float = 200.0    # Maximum radius for interaction
@@ -54,6 +87,25 @@ def gen_initial_data(
         num_particle_types: int = 4,
         palette: str = "husl"  # Good for distinguishable colors
 ) -> array:
+    """
+    Generate initial particle data for the simulation.
+    
+    Creates an array of particle data including positions, velocities, and colors.
+    Particles are randomly positioned within the screen bounds with random initial
+    velocities. Each particle is assigned one of the available particle types,
+    represented by a distinct color.
+    
+    Args:
+        screen_size (Tuple[int, int]): Width and height of the simulation area
+        num_particles (int): Total number of particles to generate
+        num_particle_types (int): Number of different particle types
+        palette (str): Color palette name from seaborn for particle types
+    
+    Returns:
+        array: Flat array of particle data in the format:
+              [pos.x, pos.y, pos.z, radius, vel.x, vel.y, vel.z, unused,
+               color.r, color.g, color.b, color.a] * num_particles
+    """
     width, height = screen_size
     colors = sns.color_palette(palette, num_particle_types)
     def _data_generator() -> Generator[float, None, None]:
@@ -81,9 +133,37 @@ def gen_initial_data(
     # Use the generator function to fill an array in RAM
     return array('f', _data_generator())
 
-class NBodyGravityWindow(arcade.Window):
+class ParticleLifeWindow(arcade.Window):
+    """
+    Main window class for the particle life simulation.
+    
+    This class handles the initialization of OpenGL resources, shader programs,
+    UI elements, and manages the main simulation loop. It provides real-time
+    control over simulation parameters through an interactive UI and supports
+    video recording of the simulation.
+    
+    The simulation uses compute shaders for efficient parallel processing of
+    particle interactions and updates. Particles move in a toroidal space,
+    wrapping around screen edges, and interact based on their types and
+    distances from each other.
+    
+    Attributes:
+        params (SimulationParams): Container for all simulation parameters
+        ui_manager (UIManager): Manages UI elements and interactions
+        recording (bool): Whether video recording is active
+        compute_shader (ComputeShader): Shader program for particle updates
+        interaction_matrix (ndarray): Matrix defining particle type interactions
+    """
 
     def __init__(self):
+        """
+        Initialize the simulation window and all required resources.
+        
+        Sets up the OpenGL context, initializes simulation parameters,
+        creates UI elements, and prepares shader programs and buffers
+        for particle simulation. Also generates a random interaction
+        matrix for particle type relationships.
+        """
         # Ask for OpenGL context supporting version 4.3 or greater when
         # calling the parent initializer to make sure we have compute shader
         # support.
@@ -143,9 +223,9 @@ class NBodyGravityWindow(arcade.Window):
 
         # --- Create the visualization shaders
 
-        vertex_shader_source = Path("shaders/vertex_shader.glsl").read_text()
-        fragment_shader_source = Path("shaders/fragment_shader.glsl").read_text()
-        geometry_shader_source = Path("shaders/geometry_shader.glsl").read_text()
+        vertex_shader_source = Path("src/shaders/vertex_shader.glsl").read_text()
+        fragment_shader_source = Path("src/shaders/fragment_shader.glsl").read_text()
+        geometry_shader_source = Path("src/shaders/geometry_shader.glsl").read_text()
 
         # Create the complete shader program which will draw the stars
         self.program = self.ctx.program(
@@ -157,7 +237,7 @@ class NBodyGravityWindow(arcade.Window):
         # --- Create our compute shader
 
         # Load in the raw source code safely & auto-close the file
-        compute_shader_source = Path("shaders/compute_shader.glsl").read_text()
+        compute_shader_source = Path("src/shaders/compute_shader.glsl").read_text()
 
         # Compute shaders use groups to parallelize execution.
         # You don't need to understand how this works yet, but the
@@ -223,7 +303,17 @@ class NBodyGravityWindow(arcade.Window):
 
 
     def setup_ui(self):
-        """Set up the UI elements."""
+        """
+        Set up the user interface elements for simulation control.
+        
+        Creates a control panel with sliders for adjusting simulation
+        parameters in real-time. The panel includes controls for:
+        - Interaction and repulsion radii
+        - Force strengths (repulsion and attraction)
+        - Movement limits (max force and speed)
+        - Friction
+        Also adds a reset button to restore default parameters.
+        """
         # Create a vertical box layout for our controls
         self.v_box = UIBoxLayout(
             space_between=20,  # Increased spacing between elements
@@ -320,20 +410,34 @@ class NBodyGravityWindow(arcade.Window):
         self.ui_manager.add(anchor)
 
     def on_interaction_radius_change(self, event):
-        """Handle changes to the interaction radius slider."""
+        """
+        Handle changes to the interaction radius slider.
+        
+        Updates both the local parameter and the compute shader uniform
+        when the user adjusts the interaction radius slider.
+        
+        Args:
+            event: Slider change event containing the new value
+        """
         self.params.interaction_radius = event.new_value
         self.compute_shader["interaction_radius"] = event.new_value
-        # Update the value label
         self.interaction_value_label.text = f"{event.new_value:.1f}"
-        print(f"Updated interaction radius to: {event.new_value}")  # Debug print
+        print(f"Updated interaction radius to: {event.new_value}")
 
     def on_repulsion_radius_change(self, event):
-        """Handle changes to the repulsion radius slider."""
+        """
+        Handle changes to the repulsion radius slider.
+        
+        Updates both the local parameter and the compute shader uniform
+        when the user adjusts the repulsion radius slider.
+        
+        Args:
+            event: Slider change event containing the new value
+        """
         self.params.repulsion_radius = event.new_value
         self.compute_shader["repulsion_radius"] = event.new_value
-        # Update the value label
         self.repulsion_value_label.text = f"{event.new_value:.1f}"
-        print(f"Updated repulsion radius to: {event.new_value}")  # Debug print
+        print(f"Updated repulsion radius to: {event.new_value}")
 
     def on_repulsion_strength_change(self, event):
         """Handle changes to the repulsion strength slider."""
@@ -366,7 +470,15 @@ class NBodyGravityWindow(arcade.Window):
         self.friction_label.text = f"{event.new_value:.1f}"
 
     def on_reset_click(self, event):
-        """Reset all parameters to their default values."""
+        """
+        Reset all simulation parameters to their default values.
+        
+        Creates a new SimulationParams instance with default values and
+        updates all UI elements and shader uniforms accordingly.
+        
+        Args:
+            event: Button click event (unused)
+        """
         # Create new params object with defaults
         default_params = SimulationParams()
         
@@ -399,7 +511,15 @@ class NBodyGravityWindow(arcade.Window):
         self.friction_label.text = f"{default_params.friction:.1f}"
 
     def generate_video_filename(self) -> str:
-        """Generate a unique video filename based on current time and simulation parameters."""
+        """
+        Generate a unique filename for video recording.
+        
+        Creates a filename based on current timestamp and simulation
+        parameters, ensuring each recording has a unique identifier.
+        
+        Returns:
+            str: Path to the video file in the videos directory
+        """
         # Create videos directory if it doesn't exist
         videos_dir = Path("videos")
         videos_dir.mkdir(exist_ok=True)
@@ -415,7 +535,15 @@ class NBodyGravityWindow(arcade.Window):
         return str(videos_dir / filename)
 
     def start_recording(self, output_path: Optional[str] = None):
-        """Start recording the simulation to video."""
+        """
+        Start recording the simulation to video.
+        
+        Initializes video recording with the specified or auto-generated
+        filename. Records at 30 FPS in MP4 format.
+        
+        Args:
+            output_path (Optional[str]): Custom path for the video file
+        """
         if not self.recording:
             # Generate unique filename if none provided
             if output_path is None:
@@ -439,7 +567,12 @@ class NBodyGravityWindow(arcade.Window):
             print("\033[K", end="", flush=True)  # Clear line and prepare for progress updates
 
     def stop_recording(self):
-        """Stop recording and save the video."""
+        """
+        Stop the current video recording.
+        
+        Finalizes the video file and prints recording statistics
+        including duration and frame count.
+        """
         if self.recording:
             self.recording = False
             if self.video_writer:
@@ -453,7 +586,15 @@ class NBodyGravityWindow(arcade.Window):
             print("")
 
     def on_key_press(self, key: int, modifiers: int):
-        """Handle key press events for video recording control."""
+        """
+        Handle keyboard input for video recording control.
+        
+        Ctrl+R toggles video recording on/off.
+        
+        Args:
+            key (int): The key that was pressed
+            modifiers (int): Modifier keys (ctrl, shift, etc.)
+        """
         if key == arcade.key.R and modifiers & arcade.key.MOD_CTRL:
             # Ctrl+R to toggle recording
             if not self.recording:
@@ -462,6 +603,17 @@ class NBodyGravityWindow(arcade.Window):
                 self.stop_recording()
 
     def on_draw(self):
+        """
+        Main rendering method called every frame.
+        
+        Performs the following steps:
+        1. Clears the screen
+        2. Updates particle positions using compute shader
+        3. Renders particles
+        4. Updates and draws UI elements
+        5. Handles video recording if active
+        6. Swaps particle buffers for next frame
+        """
         # Clear the screen
         self.clear()
         
@@ -527,5 +679,5 @@ class NBodyGravityWindow(arcade.Window):
 
 
 if __name__ == "__main__":
-    app = NBodyGravityWindow()
+    app = ParticleLifeWindow()
     arcade.run()
