@@ -220,9 +220,10 @@ class NBodyGravityWindow(arcade.Window):
             self.recording = True
             self.frame_count = 0
             self.start_time = time.time()
+            # Clear any previous output and print start message
+            print("\033[K", end="")
             print(f"Started recording to {output_path}")
-            # Print an empty line for progress updates
-            print("")
+            print("\033[K", end="", flush=True)  # Clear line and prepare for progress updates
 
     def stop_recording(self):
         """Stop recording and save the video."""
@@ -232,8 +233,11 @@ class NBodyGravityWindow(arcade.Window):
                 self.video_writer.release()
                 self.video_writer = None
             duration = time.time() - self.start_time
-            # Move up one line and clear it
-            print(f"\033[A\033[KRecording stopped. Saved {self.frame_count} frames ({duration:.1f} seconds)")
+            # Clear the progress line and print final message
+            print("\033[K", end="")
+            print(f"\tRecording stopped. Saved {self.frame_count} frames ({duration:.1f} seconds)")
+            # Add a newline to ensure clean state for next recording
+            print("")
 
     def on_key_press(self, key: int, modifiers: int):
         """Handle key press events for video recording control."""
@@ -280,11 +284,9 @@ class NBodyGravityWindow(arcade.Window):
             self.video_writer.write(frame)
             self.frame_count += 1
             
-            # Update progress by moving up one line first
+            # Update progress
             duration = time.time() - self.start_time
-            print(f"\033[A\033[KRecording: {self.frame_count} frames ({duration:.1f} seconds) - Press Ctrl+R to stop", end="", flush=True)
-            # Print a newline to maintain the empty line below
-            print("")
+            print(f"\r\033[KRecording: {self.frame_count} frames ({duration:.1f} seconds) - Press Ctrl+R to stop", end="", flush=True)
 
         # Swap the buffer pairs.
         self.ssbo_previous, self.ssbo_current = self.ssbo_current, self.ssbo_previous
