@@ -186,12 +186,14 @@ class NBodyGravityWindow(arcade.Window):
     def start_recording(self, output_path: str = "particle_life.mp4"):
         """Start recording the simulation to video."""
         if not self.recording:
+            # Get the actual framebuffer size
+            fb_width, fb_height = self.get_framebuffer_size()
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             self.video_writer = cv2.VideoWriter(
                 output_path, 
                 fourcc, 
                 30.0,  # FPS
-                (self.width, self.height)
+                (fb_width, fb_height)
             )
             self.recording = True
             self.frame_count = 0
@@ -233,12 +235,22 @@ class NBodyGravityWindow(arcade.Window):
 
         # Record frame if we're recording
         if self.recording and self.video_writer:
+            # Get the actual framebuffer size
+            fb_width, fb_height = self.get_framebuffer_size()
+            
             # Read the frame buffer (4 components: RGBA)
             image_buffer = self.ctx.screen.read(components=4)
             # Convert to numpy array and reshape
             frame = np.frombuffer(image_buffer, dtype=np.uint8)
+            
+            # Debug information
+            expected_size = fb_width * fb_height * 4
+            actual_size = len(frame)
+            print(f"Expected buffer size: {expected_size} (width={fb_width}, height={fb_height}, components=4)")
+            print(f"Actual buffer size: {actual_size}")
+            
             # Reshape considering all 4 components (RGBA)
-            frame = frame.reshape((self.height, self.width, 4))
+            frame = frame.reshape((fb_height, fb_width, 4))
             # Extract only RGB components
             frame = frame[:, :, :3]
             # OpenCV uses BGR format, so convert from RGB
