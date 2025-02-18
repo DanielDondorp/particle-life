@@ -230,7 +230,9 @@ class NBodyGravityWindow(arcade.Window):
                 self.video_writer.release()
                 self.video_writer = None
             duration = time.time() - self.start_time
-            print(f"\nRecording stopped. Saved {self.frame_count} frames ({duration:.1f} seconds)")
+            # Print a newline first to move to a new line after the progress message
+            print()  # This ensures we're on a fresh line
+            print(f"Recording stopped. Saved {self.frame_count} frames ({duration:.1f} seconds)")
 
     def on_key_press(self, key: int, modifiers: int):
         """Handle key press events for video recording control."""
