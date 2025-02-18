@@ -47,7 +47,7 @@ GRAPH_HEIGHT = 120
 GRAPH_MARGIN = 5
 
 # Simulation parameters
-NUM_PARTICLES: int = 30000
+NUM_PARTICLES: int = 40000
 N_PARTICLE_TYPES: int = 5
 
 # Add simulation parameters that will be controllable
@@ -84,7 +84,7 @@ class SimulationParams:
 def gen_initial_data(
         screen_size: Tuple[int, int],
         num_particles: int = NUM_PARTICLES,
-        num_particle_types: int = 4,
+        num_particle_types: int = N_PARTICLE_TYPES,
         palette: str = "husl"  # Good for distinguishable colors
 ) -> array:
     """
@@ -93,42 +93,57 @@ def gen_initial_data(
     Creates an array of particle data including positions, velocities, and colors.
     Particles are randomly positioned within the screen bounds with random initial
     velocities. Each particle is assigned one of the available particle types,
-    represented by a distinct color.
+    represented by a distinct color. The type ID is stored in the alpha channel.
     
     Args:
         screen_size (Tuple[int, int]): Width and height of the simulation area
         num_particles (int): Total number of particles to generate
         num_particle_types (int): Number of different particle types
-        palette (str): Color palette name from seaborn for particle types
+        palette (str): Color palette name (unused, using fixed colors)
     
     Returns:
         array: Flat array of particle data in the format:
               [pos.x, pos.y, pos.z, radius, vel.x, vel.y, vel.z, unused,
-               color.r, color.g, color.b, color.a] * num_particles
+               color.r, color.g, color.b, type_id] * num_particles
     """
     width, height = screen_size
-    colors = sns.color_palette(palette, num_particle_types)
+    
+    # Fixed colors matching the shader
+    colors = [
+        (0.9, 0.2, 0.2),  # Type 0 - Red
+        (0.2, 0.9, 0.2),  # Type 1 - Green
+        (0.2, 0.2, 0.9),  # Type 2 - Blue
+        (0.9, 0.9, 0.2),  # Type 3 - Yellow
+        (0.9, 0.2, 0.9),  # Type 4 - Purple
+    ]
+    
     def _data_generator() -> Generator[float, None, None]:
-        for i in range(num_particles):
-            # Position/radius
-            yield random.randrange(0, width)
-            yield random.randrange(0, height)
-            yield 0.0
-            yield 3.0  # Smaller radius for particles
+        particles_per_type = num_particles // num_particle_types
+        remaining = num_particles % num_particle_types
+        
+        for type_id in range(num_particle_types):
+            # Calculate how many particles of this type to generate
+            count = particles_per_type + (1 if type_id < remaining else 0)
+            
+            for _ in range(count):
+                # Position/radius
+                yield random.randrange(0, width)
+                yield random.randrange(0, height)
+                yield 0.0
+                yield 3.0  # Smaller radius for particles
 
-            # Velocity
-            yield random.uniform(-1.0, 1.0)
-            yield random.uniform(-1.0, 1.0)
-            yield 0.0
-            yield 0.0
+                # Velocity
+                yield random.uniform(-1.0, 1.0)
+                yield random.uniform(-1.0, 1.0)
+                yield 0.0
+                yield 0.0
 
-            # Color (now represents particle type)
-            type_id = random.randint(0, num_particle_types - 1)
-            r, g, b = colors[type_id]
-            yield r
-            yield g
-            yield b
-            yield 1.0  # Alpha channel
+                # Color (represents particle type)
+                r, g, b = colors[type_id]
+                yield r
+                yield g
+                yield b
+                yield float(type_id)  # Store type_id in alpha channel
 
     # Use the generator function to fill an array in RAM
     return array('f', _data_generator())
@@ -394,6 +409,15 @@ class ParticleLifeWindow(arcade.Window):
         reset_button.on_click = self.on_reset_click
         self.v_box.add(reset_button)
 
+        # Add fresh start button
+        fresh_start_button = UIFlatButton(
+            text="Fresh Start",
+            width=280,
+            height=40,
+        )
+        fresh_start_button.on_click = self.on_fresh_start_click
+        self.v_box.add(fresh_start_button)
+
         # Create an anchor layout for positioning
         anchor = UIAnchorLayout()
         
@@ -630,10 +654,17 @@ class ParticleLifeWindow(arcade.Window):
         self.ssbo_previous.bind_to_storage_buffer(binding=0)
         self.ssbo_current.bind_to_storage_buffer(binding=1)
         
-        # Verify shader parameters before running (every 60 frames)
-        if self.frame_count % 60 == 0:
-            print(f"Current shader parameters - Interaction: {self.compute_shader['interaction_radius']}, Repulsion: {self.compute_shader['repulsion_radius']}")
+        # Ensure matrix data is properly maintained
+        matrix_data = self.interaction_matrix.flatten()
+        max_size = 8*8
+        if len(matrix_data) < max_size:
+            matrix_data = np.pad(matrix_data, (0, max_size - len(matrix_data)))
+        matrix_list = matrix_data.tolist()
         
+        # Update shader uniforms
+        self.compute_shader["interaction_matrix"] = matrix_list
+        
+        # Run the compute shader
         self.compute_shader.run(group_x=self.group_x, group_y=self.group_y)
 
         # Draw particles
@@ -676,6 +707,17 @@ class ParticleLifeWindow(arcade.Window):
         # Draw the graphs
         # self.perf_graph_list.draw()
 
+    def on_fresh_start_click(self, event):
+        """
+        Reinitialize the simulation for a fresh start.
+        
+        Args:
+            event: Button click event (unused)
+        """
+        # Close the current window and start a new instance
+        self.close()
+        new_app = ParticleLifeWindow()
+        arcade.run()
 
 
 if __name__ == "__main__":

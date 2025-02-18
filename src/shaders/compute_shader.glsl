@@ -21,7 +21,7 @@ uniform float friction;             // Velocity dampening
 struct Particle {
     vec4 pos;    // xyz = position, w = radius
     vec4 vel;    // xyz = velocity, w = unused
-    vec4 color;  // rgba = color/type
+    vec4 color;  // rgb = color, a = type_id
 };
 
 // Input buffer
@@ -34,7 +34,6 @@ layout(std430, binding=1) buffer particles_out {
     Particle particles[];
 } Out;
 
-
 // Add this function before main()
 vec2 toroidal_diff(vec2 pos1, vec2 pos2, vec2 world_size) {
     vec2 diff = pos2 - pos1;
@@ -46,6 +45,10 @@ vec2 toroidal_diff(vec2 pos1, vec2 pos2, vec2 world_size) {
     return diff;
 }
 
+float get_interaction_strength(int type1, int type2) {
+    int matrix_index = type1 * N_PARTICLE_TYPES + type2;
+    return interaction_matrix[matrix_index];
+}
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
@@ -55,9 +58,9 @@ void main() {
     vec2 pos = In.particles[id].pos.xy;
     vec2 vel = In.particles[id].vel.xy;
     vec4 color = In.particles[id].color;
-
-    // Calculate particle type from color
-    int type1 = int(color.r + color.g * 2.0 + color.b * 4.0);
+    
+    // Get particle type directly from alpha channel
+    int type1 = int(color.a);
     
     vec2 force_sum = vec2(0.0);
 
@@ -67,25 +70,26 @@ void main() {
 
         vec2 other_pos = In.particles[i].pos.xy;
         vec4 other_color = In.particles[i].color;
-        int type2 = int(other_color.r + other_color.g * 2.0 + other_color.b * 4.0);
+        
+        // Get other particle's type directly from alpha channel
+        int type2 = int(other_color.a);
 
         vec2 diff = toroidal_diff(pos, other_pos, screen_size);
         float dist = length(diff);
-        vec2 direction = normalize(diff);
-
-        if(dist > 0.0) {  // Avoid division by zero
-            // Universal repulsion (inverse proportional to distance)
+        
+        if(dist > 0.0 && dist < interaction_radius) {  // Only process if within range
+            vec2 direction = normalize(diff);
+            
+            // Get interaction strength from matrix
+            float interaction = get_interaction_strength(type1, type2);
+            
+            // Universal short-range repulsion
             if(dist < repulsion_radius) {
                 float repulsion = repulsion_strength * (1.0 - dist/repulsion_radius);
                 force_sum -= direction * repulsion;
             }
-            
-            // Attraction/repulsion based on particle types
-            if(dist < interaction_radius && dist > repulsion_radius) {
-                // Convert 2D index to 1D for matrix lookup
-                int matrix_index = type1 * N_PARTICLE_TYPES + type2;
-                float interaction = interaction_matrix[matrix_index];
-                
+            // Type-based attraction/repulsion
+            else {
                 // Smooth transition between repulsion and interaction radius
                 float factor = attraction_strength * interaction * 
                              (1.0 - (dist - repulsion_radius)/(interaction_radius - repulsion_radius));
@@ -113,7 +117,7 @@ void main() {
     // Update position with wraparound
     pos = mod(pos + vel, screen_size);
 
-     // Write output
+    // Write output
     Out.particles[id].pos = vec4(pos, 0.0, In.particles[id].pos.w);
     Out.particles[id].vel = vec4(vel, 0.0, 0.0);
     Out.particles[id].color = color;
