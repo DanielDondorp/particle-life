@@ -11,6 +11,7 @@ from arcade.gl import BufferDescription
 from pathlib import Path
 import cv2
 import time
+from datetime import datetime
 
 
 # Window dimensions
@@ -184,9 +185,22 @@ class NBodyGravityWindow(arcade.Window):
         # self.perf_graph_list.append(graph)
 
 
-    def start_recording(self, output_path: str = "particle_life.mp4"):
+    def generate_video_filename(self) -> str:
+        """Generate a unique video filename based on current time and simulation parameters."""
+        # Format: particle_life_YYYYMMDD_HHMMSS_30kp_5t.mp4
+        # Where 30kp means 30,000 particles, 5t means 5 particle types
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        particles_str = f"{NUM_PARTICLES//1000}kp" if NUM_PARTICLES >= 1000 else f"{NUM_PARTICLES}p"
+        types_str = f"{N_PARTICLE_TYPES}t"
+        return f"particle_life_{timestamp}_{particles_str}_{types_str}.mp4"
+
+    def start_recording(self, output_path: Optional[str] = None):
         """Start recording the simulation to video."""
         if not self.recording:
+            # Generate unique filename if none provided
+            if output_path is None:
+                output_path = self.generate_video_filename()
+            
             # Get the actual framebuffer size
             fb_width, fb_height = self.get_framebuffer_size()
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
