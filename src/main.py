@@ -48,7 +48,7 @@ GRAPH_MARGIN = 5
 
 # Simulation parameters
 NUM_PARTICLES: int = 30000
-N_PARTICLE_TYPES: int = 5
+N_PARTICLE_TYPES: int = 5 # DO NOT CHANGE THIS VALUE
 
 # Add simulation parameters that will be controllable
 class SimulationParams:
